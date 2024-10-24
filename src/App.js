@@ -47,6 +47,9 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  AlertTitle,
+  Link,
+  Snackbar,
 } from '@mui/material';
 import { 
   AccountBalanceWallet, 
@@ -190,6 +193,65 @@ function WalletConnectComponent() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [tradeMode, setTradeMode] = useState('buy');
+  const [walletError, setWalletError] = useState(null);
+  const [showWalletGuide, setShowWalletGuide] = useState(false);
+
+  // Add these new states to your component
+
+  // Add this helper function
+  const getWalletErrorMessage = (error) => {
+    if (!window.ethereum) {
+      return {
+        title: "Wallet Not Found",
+        message: "Please install a Web3 wallet to continue.",
+        action: "install"
+      };
+    }
+    
+    if (error?.code === 4001) {
+      return {
+        title: "Connection Rejected",
+        message: "You rejected the connection request. Please try again.",
+        action: "retry"
+      };
+    }
+
+    if (error?.code === -32002) {
+      return {
+        title: "Connection Pending",
+        message: "Please check your wallet for pending connection requests.",
+        action: "check"
+      };
+    }
+
+    return {
+      title: "Connection Error",
+      message: error?.message || "An unknown error occurred.",
+      action: "retry"
+    };
+  };
+
+  // Update your connect wallet function
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      setWalletError({
+        title: "Wallet Not Found",
+        message: "Please install a Web3 wallet to continue.",
+        action: "install"
+      });
+      setShowWalletGuide(true);
+      return;
+    }
+
+    try {
+      setStatus("Connecting wallet...");
+      await activate(injected);
+      setStatus("Wallet connected!");
+    } catch (error) {
+      console.error("Connection Error: ", error);
+      setWalletError(getWalletErrorMessage(error));
+    }
+  };
 
   // Update the useEffect for loading token addresses
   useEffect(() => {
@@ -245,16 +307,6 @@ function WalletConnectComponent() {
     autoConnect();
   }, [activate, setError]);
 
-  // Connect MetaMask wallet
-  const connectWallet = async () => {
-    try {
-      await activate(injected);
-      setIsConnected(true);
-    } catch (ex) {
-      console.log("Connection Error: ", ex);
-    }
-  };
-
   // Disconnect MetaMask wallet
   const disconnectWallet = () => {
     try {
@@ -306,7 +358,8 @@ function WalletConnectComponent() {
       const tokenInfo = {
         address: tokenMint.address,
         name: tokenName,
-        ticker: tokenTicker
+        ticker: tokenTicker,
+        datadump: brandDetails
       };
 
       // Store the deployed token info in local storage
@@ -723,7 +776,7 @@ const tokenAddressChange = (v) => {
         <Container>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
             <Typography variant="h5" component="h1">
-              Franchising Platform
+              Franchising Dot Fun
             </Typography>
             
             {!isConnected ? (
