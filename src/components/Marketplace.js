@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -6,8 +6,13 @@ import {
   Card, 
   CardContent, 
   CardActions, 
-  Button 
+  Button,
+  IconButton,
+  Dialog,
+  DialogContent,
 } from '@mui/material';
+import { Info } from '@mui/icons-material';
+import TokenProfile from './TokenProfile';
 
 function Marketplace({ 
   tokenAddresses, 
@@ -15,6 +20,19 @@ function Marketplace({
   setSelectedTokenTicker, 
   setActiveTab 
 }) {
+  const [selectedToken, setSelectedToken] = useState(null);
+  const [openProfile, setOpenProfile] = useState(false);
+
+  const handleProfileOpen = (token) => {
+    setSelectedToken(token);
+    setOpenProfile(true);
+  };
+
+  const handleProfileClose = () => {
+    setOpenProfile(false);
+    setSelectedToken(null);
+  };
+
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 3 }}>Available Tokens</Typography>
@@ -23,7 +41,16 @@ function Marketplace({
           <Grid item xs={12} sm={6} md={4} key={token.address}>
             <Card>
               <CardContent>
-                <Typography variant="h6">{token.name}</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Typography variant="h6">{token.name}</Typography>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleProfileOpen(token)}
+                    sx={{ ml: 1 }}
+                  >
+                    <Info />
+                  </IconButton>
+                </Box>
                 <Typography 
                   variant="subtitle2" 
                   sx={{ 
@@ -65,6 +92,19 @@ function Marketplace({
           </Grid>
         ))}
       </Grid>
+
+      {/* Token Profile Dialog */}
+      <Dialog
+        open={openProfile}
+        onClose={handleProfileClose}
+        maxWidth="lg"
+        fullWidth
+        scroll="paper"
+      >
+        <DialogContent>
+          <TokenProfile token={selectedToken} />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

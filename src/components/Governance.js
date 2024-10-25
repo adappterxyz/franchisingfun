@@ -27,15 +27,19 @@ import {
   Radio,
   Alert,
   AlertTitle,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   HowToVote,
   LocalAtm,
   Description,
   AdminPanelSettings,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Upload,
+  InfoOutlined
 } from '@mui/icons-material';
+import TokenBrandDetails from './TokenBrandDetails';
 
 
 function Governance({
@@ -77,45 +81,44 @@ function Governance({
 }) {
   // Component state
   const [openMFADialog, setOpenMFADialog] = useState(false);
-  const [mfaSigners, setMfaSigners] = useState('');
-  const [mfaThreshold, setMfaThreshold] = useState(2);
-  const [mfaTimelock, setMfaTimelock] = useState(24);
-
+  const [mfaOfferer, setMfaOfferer] = useState('');
+  const [mfaTokenAmount, setMfaTokenAmount] = useState('');
+  const [mfaVestingDuration, setMfaVestingDuration] = useState(24);
+  const [mfaType, setMfaType] = useState('official'); // 'official' or 'alternative'
+  const [brandDetails, setBrandDetails] = useState({
+    website: '',
+    documents: null,
+    // ... other brand details
+  });
+  const [selectedGovernanceToken, setSelectedGovernanceToken] = useState(null);
+  const handleTokenSelect = (value) => {
+    const tokenAddress = value;
+    const token = tokenAddresses.find(t => t.address === tokenAddress);
+    setSelectedGovernanceToken(token);
+    // ... rest of your existing handleTokenSelect logic
+  };
   const handleInitializeMFA = async () => {
     try {
-      // Validate inputs
-      const signerAddresses = mfaSigners
-        .split(',')
-        .map(addr => addr.trim())
-        .filter(addr => addr.length > 0);
-      
-      if (signerAddresses.length < mfaThreshold) {
-        throw new Error('Number of signers must be greater than or equal to threshold');
-      }
-      
-      // Create special MFA initialization proposal
+      // Create MFA proposal
       const proposal = {
-        title: 'Initialize Multi-Factor Authentication',
-        description: `Initialize MFA with:
-          \nSigners: ${signerAddresses.join(', ')}
-          \nThreshold: ${mfaThreshold}
-          \nTimelock: ${mfaTimelock} hours`,
-        type: 'MFA_INIT',
+        title: 'Master Franchise Agreement Token Transfer',
+        description: `MFA Token Transfer Proposal:
+          \nOfferer Address: ${mfaOfferer}
+          \nToken Amount: ${mfaTokenAmount}
+          \nVesting Duration: ${mfaVestingDuration} months`,
+        type: 'MFA_TRANSFER',
         config: {
-          signers: signerAddresses,
-          threshold: parseInt(mfaThreshold),
-          timelock: parseInt(mfaTimelock) * 3600 // Convert hours to seconds
+          offerer: mfaOfferer,
+          amount: mfaTokenAmount,
+          vestingDuration: parseInt(mfaVestingDuration) * 30 * 24 * 3600 // Convert months to seconds
         }
       };
       
-      // Call your contract method to create MFA proposal
-      // await daoContract.createMFAProposal(proposal.config);
-      
+      // Create proposal through standard governance
+      await handleCreateProposal(proposal);
       setOpenMFADialog(false);
-      // Refresh proposals list
     } catch (error) {
-      console.error('Error initializing MFA:', error);
-      // Show error message to user
+      console.error('Error creating MFA proposal:', error);
     }
   };
   return (
@@ -129,6 +132,7 @@ function Governance({
           onChange={(e) => {
             setSelectedDAO(e.target.value);
             setDaoDetails(getDAODetails(e.target.value));
+            handleTokenSelect(e.target.value);
           }}
           label="Select Franchise DAO"
         >
@@ -179,15 +183,25 @@ function Governance({
           <Grid item xs={12} md={4}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
-                Staking
+                Staking 
               </Typography>
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Currently Staked
                 </Typography>
                 <Typography variant="h4">
-                  {stakedAmount} {selectedTokenTicker || 'Tokens'}
+                  {stakedAmount} {selectedGovernanceToken?.ticker || 'Tokens'}
                 </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <Typography variant="body2" color="success.main" sx={{ fontWeight: 'medium' }}>
+                    15% APR
+                  </Typography>
+                  <Tooltip title="Annual Percentage Rate for staking rewards">
+                    <IconButton size="small" sx={{ ml: 0.5 }}>
+                      <InfoOutlined fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
               <Stack spacing={2}>
                 <Button
@@ -196,7 +210,7 @@ function Governance({
                   onClick={() => setOpenStakeDialog(true)}
                   fullWidth
                 >
-                  Stake Tokens
+                  Stake {selectedTokenTicker}
                 </Button>
                 <Button
                   variant="outlined"
@@ -204,7 +218,7 @@ function Governance({
                   onClick={() => setOpenUnstakeDialog(true)}
                   fullWidth
                 >
-                  Unstake Tokens
+                  Unstake {selectedTokenTicker}
                 </Button>
               </Stack>
             </Paper>
@@ -381,89 +395,127 @@ function Governance({
           onClose={() => setOpenMFADialog(false)}
           maxWidth="md"
           fullWidth
+          PaperProps={{
+            sx: { width: '100%', maxWidth: 'md' }
+          }}
         >
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              Master Franchise Agreement Token Transfer
+              Master Franchise Agreement Initialization
               <IconButton onClick={() => setOpenMFADialog(false)}>
                 <CloseIcon />
               </IconButton>
             </Box>
           </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2 }}>
-              <Alert severity="info" sx={{ mb: 3 }}>
-                <AlertTitle>Franchise DAO initiation</AlertTitle>
-                This is a specialized proposal for verifying and executing the Master Franchise Agreement (MFA) token transfer with vesting schedule.
+          <DialogContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Alert severity="info">
+                <AlertTitle>Master Franchise Agreement Proposal</AlertTitle>
+                Create a proposal for a Master Franchise Agreement token transfer. All metadata and legal documentation will be stored on-chain.
               </Alert>
               
-              <Typography variant="body1" gutterBottom>
-                Upon successful verification and approval, this process will:
-              </Typography>
               <List>
                 <ListItem>
                   <ListItemText 
-                    primary="1. Legal Documentation Verification"
-                    secondary="Authorized signers will verify and approve the MFA legal documentation"
+                    primary="1. Store Legal Documentation"
+                    secondary="All MFA documentation and metadata will be stored on-chain"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
                     primary="2. Token Transfer Configuration"
-                    secondary="Set up the treasury transfer parameters and vesting schedule for MFA tokens"
+                    secondary="Set up the treasury transfer parameters and vesting schedule"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="3. Multi-signature Authorization"
-                    secondary="Require multiple authorized signatures to approve and execute the transfer"
+                    primary="3. Alternative Offering"
+                    secondary="In the event where prospected brand is not available / interested, an alternative brand may reach out to appeal to the community for MFA swap."
                   />
                 </ListItem>
               </List>
               
-              <TextField
-                label="Authorized Signers (comma-separated addresses)"
-                fullWidth
-                multiline
-                rows={3}
-                value={mfaSigners}
-                onChange={(e) => setMfaSigners(e.target.value)}
-                sx={{ mb: 2 }}
-                helperText="Wallet addresses authorized to verify and approve the MFA"
-              />
+              <FormControl fullWidth   >
+                <InputLabel>Proposal Type</InputLabel>
+                <Select
+                  value={mfaType}
+                  onChange={(e) => setMfaType(e.target.value)}
+                  label="Proposal Type"
+                >
+                  <MenuItem value="official">Official Brand Representative</MenuItem>
+                  <MenuItem value="alternative">Alternative Brand Offering</MenuItem>
+                </Select>
+                  </FormControl>
+
+              {mfaType === 'official' ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    label="Public announcement / Url for validation"
+                    fullWidth
+                    type="url"
+                    value={brandDetails.website}
+                    onChange={(e) => setBrandDetails({...brandDetails, website: e.target.value})}
+                    helperText="To prove validity of provisional MFA interest, please include an official declaration of intent."
+                  />
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<Upload />}
+                    fullWidth
+                  >
+                    Upload Official Documentation
+                    <input
+                      type="file"
+                      hidden
+                      onChange={(e) => setBrandDetails({...brandDetails, documents: e.target.files[0]})}
+                    />
+                  </Button>
+                </Box>
+              ) : (
+                <Paper variant="outlined" sx={{ p: 3 }}>
+                  <TokenBrandDetails 
+                    brandDetails={brandDetails}
+                    setBrandDetails={setBrandDetails}
+                  />
+                </Paper>
+              )}
               
-              <TextField
-                label="Required Signatures"
-                type="number"
-                fullWidth
-                value={mfaThreshold}
-                onChange={(e) => setMfaThreshold(e.target.value)}
-                InputProps={{
-                  inputProps: { min: 1 }
-                }}
-                sx={{ mb: 2 }}
-                helperText="Number of signatures required to approve the MFA transfer"
-              />
-              
-              <TextField
-                label="Vesting Duration (months)"
-                type="number"
-                fullWidth
-                value={mfaTimelock}
-                onChange={(e) => setMfaTimelock(e.target.value)}
-                InputProps={{
-                  inputProps: { min: 1 }
-                }}
-                helperText="Duration over which the MFA tokens will be vested and transferred"
-              />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  label="Token Amount"
+                  type="number"
+                  fullWidth
+                  value={mfaTokenAmount}
+                  onChange={(e) => setMfaTokenAmount(e.target.value)}
+                  helperText="Amount of tokens to be transferred"
+                />
+                
+                <TextField
+                  label="Vesting Duration (months)"
+                  type="number"
+                  fullWidth
+                  value={mfaVestingDuration}
+                  onChange={(e) => setMfaVestingDuration(e.target.value)}
+                  InputProps={{
+                    inputProps: { min: 1 }
+                  }}
+                  helperText="Duration over which the tokens will be vested"
+                />
+              </Box>
             </Box>
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{ p: 3, pt: 0 }}>
             <Button onClick={() => setOpenMFADialog(false)}>Cancel</Button>
             <Button 
               onClick={handleInitializeMFA} 
               variant="contained"
               color="warning"
+              disabled={
+                (mfaType === 'official' && (!brandDetails.website || !brandDetails.documents)) ||
+                (mfaType === 'alternative' && (!brandDetails.country || !brandDetails.description)) ||
+                !mfaTokenAmount ||
+                !mfaVestingDuration
+              }
             >
               Initialize MFA Transfer
             </Button>

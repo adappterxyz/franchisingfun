@@ -1,37 +1,58 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Container,
-  Grid,
-  Paper,
-  Typography,
   Box,
-  Button,
+  Container,
+  Typography,
+  Grid,
   Card,
   CardContent,
-  CardActions
+  CardActions,
+  Button,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogContent,
 } from '@mui/material';
 import {
   Refresh,
-  ShoppingCart
+  ShoppingCart,
+  Info,
 } from '@mui/icons-material';
+import TokenProfile from './TokenProfile';
 
-function Portfolio({
-  tokenAddresses,
-  tokenBalances,
-  stablecoinBalance,
-  balance, // ETH balance
-  fetchEthBalance,
-  fetchStablecoinBalance,
-  fetchTokenBalances,
-  setSelectedTokenAddress,
-  setSelectedTokenTicker,
-  setActiveTab
+function Portfolio({ 
+  tokenAddresses, 
+  setSelectedTokenAddress, 
+  setSelectedTokenTicker, 
+  setActiveTab 
 }) {
-  const handleRefresh = () => {
-    fetchEthBalance();
-    fetchStablecoinBalance();
-    fetchTokenBalances();
+  // State management
+  const [openProfile, setOpenProfile] = useState(false);
+  const [selectedToken, setSelectedToken] = useState(null);
+  const [tokenBalances, setTokenBalances] = useState({});
+  const [stablecoinBalance, setStablecoinBalance] = useState('0');
+  const [balance, setBalance] = useState('0');
+
+  // Handle profile dialog
+  const handleProfileOpen = (token) => {
+    setSelectedToken(token);
+    setOpenProfile(true);
   };
+
+  // Fetch balances
+  const fetchTokenBalances = async () => {
+    try {
+      // Implement your balance fetching logic here
+      // This should update tokenBalances, stablecoinBalance, and balance
+    } catch (error) {
+      console.error('Error fetching balances:', error);
+    }
+  };
+
+  // Fetch balances on component mount
+  useEffect(() => {
+    fetchTokenBalances();
+  }, []);
 
   return (
     <Box>
@@ -41,7 +62,7 @@ function Portfolio({
             <Typography variant="h4">Your Portfolio</Typography>
             <Button 
               startIcon={<Refresh />}
-              onClick={handleRefresh}
+              onClick={fetchTokenBalances}
               variant="outlined"
             >
               Refresh Balances
@@ -79,7 +100,16 @@ function Portfolio({
                 <Grid item xs={12} sm={6} md={4} key={token.address}>
                   <Card sx={{ height: '100%' }}>
                     <CardContent>
-                      <Typography variant="h6" gutterBottom>{token.name}</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Typography variant="h6" gutterBottom>{token.name}</Typography>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleProfileOpen(token)}
+                          sx={{ ml: 1 }}
+                        >
+                          <Info />
+                        </IconButton>
+                      </Box>
                       <Typography variant="h4" color="primary">
                         {Number(tokenBalances[token.address]).toFixed(4)}
                       </Typography>
@@ -134,6 +164,19 @@ function Portfolio({
           )}
         </Box>
       </Container>
+
+      {/* Token Profile Dialog */}
+      <Dialog
+        open={openProfile}
+        onClose={() => setOpenProfile(false)}
+        maxWidth="lg"
+        fullWidth
+        scroll="paper"
+      >
+        <DialogContent>
+          <TokenProfile token={selectedToken} />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

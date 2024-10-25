@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { ethers } from 'ethers';
 import BondingCurveChart from './BondingCurveChart';
+import TokenProfile from './TokenProfile';
 
 const BuySellTab = ({ 
   selectedTokenAddress,
@@ -45,7 +46,8 @@ const BuySellTab = ({
   const [quotedVal, setQuotedVal] = useState('0');
   const [status, setStatus] = useState('');
   const [comment, setComment] = useState('');
-
+  const [showProfile, setShowProfile] = useState(false);
+  
   // Handle quote updates
   const updateQuote = async (action, value) => {
     if (!value || isNaN(value) || Number(value) <= 0) {
@@ -216,7 +218,7 @@ const BuySellTab = ({
           <Grid item xs={12} md={4}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
-                Trade Comments
+                Comments
               </Typography>
               <Divider sx={{ mb: 2 }} />
               
