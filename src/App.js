@@ -51,7 +51,6 @@ import {
   Link,
   Snackbar,
   Slider,
-  IconButton,
 } from '@mui/material';
 import { 
   AccountBalanceWallet, 
@@ -68,7 +67,6 @@ import {
   HowToVote,
   LocalAtm,
   Description,
-  Close as CloseIcon,
 } from '@mui/icons-material';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -87,21 +85,9 @@ import BuySellTab from './components/BuySellTab';
 import Marketplace from './components/Marketplace';
 import Governance from './components/Governance';
 import Portfolio from './components/Portfolio';
-import { WalletConnectConnector } from "@web3-react/walletconnect-connector";
 
 // Update chain ID for your network (Sepolia example: 11155111)
 const injected = new InjectedConnector({ supportedChainIds: [84532] });
-
-// Update WalletConnect connector configuration
-const walletconnect = new WalletConnectConnector({
-  rpc: {
-    84532: "https://sepolia.base.org"
-  },
-  bridge: "https://bridge.walletconnect.org", // Add this line
-  qrcode: true,
-  pollingInterval: 12000,
-  chainId: 84532, // Add explicit chainId
-});
 
 // Function to initialize ethers provider with web3-react
 function getLibrary(provider) {
@@ -215,11 +201,6 @@ const calculatePrice = (supply) => {
   return INITIAL_PRICE + Math.pow(supply, 2) * CURVE_FACTOR;
 };
 
-// Add this helper function
-const isMobileDevice = () => {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-};
-
 function WalletConnectComponent() {
   const { activate, active, account, library, deactivate, setError } = useWeb3React();
   const [balance, setBalance] = useState(null);
@@ -243,7 +224,6 @@ function WalletConnectComponent() {
   const [supplyData, setSupplyData] = useState([]);
   const [currentSupply, setCurrentSupply] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0);
-  const [isWalletConnectVisible, setIsWalletConnectVisible] = useState(false);
 
   // Add useEffect to sync isConnected with web3-react active state
   useEffect(() => {
@@ -286,49 +266,26 @@ function WalletConnectComponent() {
   };
 
   // Update your connect wallet function
-  const connectWallet = async (connectorType) => {
+  const connectWallet = async () => {
+  
+    if (!window.ethereum) {
+      console.log("attempting...");
+      setWalletError({
+        title: "Wallet Not Found",
+        message: "Please install a Web3 wallet to continue.",
+        action: "install"
+      });
+      setShowWalletGuide(true);
+      return;
+    }
+
     try {
-      if (connectorType === 'walletconnect') {
-        // Reset the connector before activating
-        await walletconnect.close(); // Close any existing sessions
-        
-        // Create new connector instance
-        const newWalletConnectConnector = new WalletConnectConnector({
-          rpc: {
-            84532: "https://sepolia.base.org"
-          },
-          bridge: "https://bridge.walletconnect.org",
-          qrcode: true,
-          pollingInterval: 12000,
-          chainId: 84532,
-        });
-
-        // Activate the new connector
-        await activate(newWalletConnectConnector, undefined, true);
-        setIsWalletConnectVisible(false);
-      } else {
-        // Existing MetaMask logic
-        if (!window.ethereum) {
-          setWalletError({
-            title: "Wallet Not Found",
-            message: "Please install a Web3 wallet or use WalletConnect",
-            action: "install"
-          });
-          setShowWalletGuide(true);
-          return;
-        }
-
-        try {
-          setStatus("Connecting wallet...");
-          await activate(injected);
-          setStatus("Wallet connected!");
-        } catch (error) {
-          console.error("Connection Error: ", error);
-          setWalletError(getWalletErrorMessage(error));
-        }
-      }
+      setStatus("Connecting wallet...");
+      await activate(injected);
+      // Remove manual setIsConnected as it will be handled by the useEffect
+      setStatus("Wallet connected!");
     } catch (error) {
-      console.error("Wallet Connection Error:", error);
+      console.error("Connection Error: ", error);
       setWalletError(getWalletErrorMessage(error));
     }
   };
@@ -388,25 +345,17 @@ function WalletConnectComponent() {
   }, [activate, setError]);
 
   // Update disconnectWallet function
-  const disconnectWallet = async () => {
+  const disconnectWallet = () => {
     try {
       deactivate();
-      
-      // If using WalletConnect, ensure proper cleanup
-      if (walletconnect) {
-        await walletconnect.close();
-        // Reset any WalletConnect specific state
-        localStorage.removeItem('walletconnect');
-      }
-      
       // Clear all relevant states
       setBalance(null);
       setStablecoinBalance(null);
       setTokenBalances({});
       setStatus("");
-      setIsConnected(false);
-    } catch (error) {
-      console.error("Disconnection Error:", error);
+      // Clear any other relevant states you have
+    } catch (ex) {
+      console.log("Disconnection Error: ", ex);
     }
   };
 
@@ -1149,73 +1098,6 @@ const tokenAddressChange = (v) => {
     }
   };
 
-  // Add WalletConnect Dialog component
-  const WalletConnectDialog = () => (
-    <Dialog 
-      open={isWalletConnectVisible} 
-      onClose={() => setIsWalletConnectVisible(false)}
-      maxWidth="xs"
-      fullWidth
-    >
-      <DialogTitle>
-        Connect Wallet
-        <IconButton
-          aria-label="close"
-          onClick={() => setIsWalletConnectVisible(false)}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 2 }}>
-          {isMobileDevice() ? (
-            // Mobile-specific options
-            <Button
-              variant="contained"
-              fullWidth
-              onClick={() => connectWallet('walletconnect')}
-              startIcon={<img src="/walletconnect-logo.svg" alt="WalletConnect" width="24" height="24" />}
-            >
-              Connect Mobile Wallet
-            </Button>
-          ) : (
-            // Desktop options
-            <>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => connectWallet('injected')}
-                startIcon={<img src="/metamask-logo.svg" alt="MetaMask" width="24" height="24" />}
-              >
-                MetaMask
-              </Button>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => connectWallet('walletconnect')}
-                startIcon={<img src="/walletconnect-logo.svg" alt="WalletConnect" width="24" height="24" />}
-              >
-                WalletConnect
-              </Button>
-            </>
-          )}
-        </Stack>
-        
-        {walletError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <AlertTitle>{walletError.title}</AlertTitle>
-            {walletError.message}
-          </Alert>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <Box sx={{ flexGrow: 1 }}>
       {/* Add this near the top of your return statement */}
@@ -1248,18 +1130,16 @@ const tokenAddressChange = (v) => {
       <AppBar position="static" sx={{ mb: 3, borderRadius: 1 }}>
         <Container>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
-            <Typography variant="h5" component="h1">
-              Franchising Dot Fun
-            </Typography>
+            <img src="/ff.png"/>
             
             {!isConnected ? (
               <Button 
                 variant="contained" 
                 color="secondary" 
-                onClick={() => setIsWalletConnectVisible(true)}
+                onClick={connectWallet}
                 startIcon={<AccountBalanceWallet />}
               >
-                Connect Wallet
+                Connect MetaMask
               </Button>
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1288,9 +1168,6 @@ const tokenAddressChange = (v) => {
           </Box>
         </Container>
       </AppBar>
-
-      {/* Add WalletConnect Dialog */}
-      <WalletConnectDialog />
 
       {isConnected && (
         <Container>
