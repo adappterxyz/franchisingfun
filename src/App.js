@@ -444,7 +444,7 @@ const getQuote = async (action,v) => {
 }
 };
 
-  const buyToken = async () => {
+  const buyToken = async (stablecoinAmount) => {
     if (!library || !account) {
       setStatus("Please connect to a wallet first.");
       return;
@@ -484,7 +484,7 @@ const getQuote = async (action,v) => {
     const BondingCurve = new ethers.Contract(bondingCurveAddress, BondingCurveArtifact.abi, signer);
  
     const amountInWei = ethers.utils.parseUnits(stablecoinAmount, 6);
-  
+  console.log(stablecoinAmount,amountInWei);
     const Tx = await BondingCurve.buyTokens(amountInWei, selectedTokenAddress);
     
     await Tx.wait(); // Wait for the approval transaction to complete
@@ -496,7 +496,7 @@ const getQuote = async (action,v) => {
       console.error(error);
     }
   };
-  const sellToken = async () => {
+  const sellToken = async (erc20tokenamount) => {
     if (!library || !account) {
       setStatus("Please connect to a wallet first.");
       return;
