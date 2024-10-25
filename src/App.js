@@ -489,7 +489,8 @@ const getQuote = async (action,v) => {
     
     await Tx.wait(); // Wait for the approval transaction to complete
       console.log(`Swap successful for ${stablecoinAmount} USDC`);
-   
+      fetchTokenBalances();
+      fetchStablecoinBalance();
     } catch (error) {
       
       console.error(error);
@@ -519,6 +520,8 @@ const getQuote = async (action,v) => {
       const selling =ethers.utils.parseUnits(stablecoinAmount.toString(), 6);
      
       console.log('ONE:',initallow, 'TWO:', selling);
+      fetchTokenBalances();
+      fetchStablecoinBalance();
  if(initallow > selling){ 
   console.log(`Initial Allowance: ${initallow} USDC`);
   
@@ -820,7 +823,7 @@ const tokenAddressChange = (v) => {
       // Mock current supply (random between 10% and 30% of max supply)
       const mockCurrentSupply = Math.floor(MAX_SUPPLY * (0.1 + Math.random() * 0.2));
       setCurrentSupply(mockCurrentSupply);
-
+//bonding curve missing getsupply for now.
       // Calculate current price based on supply
       const mockCurrentPrice = calculatePrice(mockCurrentSupply);
       setCurrentPrice(mockCurrentPrice);
@@ -1230,8 +1233,8 @@ const tokenAddressChange = (v) => {
                 currentPrice={currentPrice}
                 currentSupply={currentSupply}
                 supplyData={supplyData}
-                handleBuy={handleBuy}
-                handleSell={handleSell}
+                handleBuy={buyToken}
+                handleSell={sellToken}
                 handleQuote={handleQuote}
                
               />
