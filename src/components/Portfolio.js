@@ -19,19 +19,20 @@ import {
   Info,
 } from '@mui/icons-material';
 import TokenProfile from './TokenProfile';
+import { ethers } from 'ethers';
 
 function Portfolio({ 
   tokenAddresses, 
   setSelectedTokenAddress, 
   setSelectedTokenTicker, 
-  setActiveTab 
+  setActiveTab, 
+  balance,
+  stablecoinBalance
 }) {
   // State management
   const [openProfile, setOpenProfile] = useState(false);
   const [selectedToken, setSelectedToken] = useState(null);
   const [tokenBalances, setTokenBalances] = useState({});
-  const [stablecoinBalance, setStablecoinBalance] = useState('0');
-  const [balance, setBalance] = useState('0');
 
   // Handle profile dialog
   const handleProfileOpen = (token) => {
@@ -76,7 +77,7 @@ function Portfolio({
                 <CardContent>
                   <Typography variant="h6" gutterBottom>USDC Balance</Typography>
                   <Typography variant="h4" color="primary">
-                    {stablecoinBalance ? Number(stablecoinBalance).toFixed(2) : '0.00'}
+                  ${Number(stablecoinBalance).toFixed(2)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -96,7 +97,7 @@ function Portfolio({
 
             {/* Token Holdings */}
             {tokenAddresses.map((token) => (
-              tokenBalances[token.address] && Number(tokenBalances[token.address]) > 0 ? (
+              tokenBalances[token.address] ? (
                 <Grid item xs={12} sm={6} md={4} key={token.address}>
                   <Card sx={{ height: '100%' }}>
                     <CardContent>
@@ -111,7 +112,10 @@ function Portfolio({
                         </IconButton>
                       </Box>
                       <Typography variant="h4" color="primary">
-                        {Number(tokenBalances[token.address]).toFixed(4)}
+                        {tokenBalances[token.address] 
+                          ? Number(ethers.utils.formatUnits(tokenBalances[token.address], 18)).toFixed(4)
+                          : '0.0000'
+                        }
                       </Typography>
                       <Typography variant="subtitle2" color="text.secondary">
                         {token.ticker}
