@@ -50,6 +50,7 @@ import {
   AlertTitle,
   Link,
   Snackbar,
+  Slider,
 } from '@mui/material';
 import { 
   AccountBalanceWallet, 
@@ -70,6 +71,20 @@ import {
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceDot,
+} from 'recharts';
+import BuySellTab from './components/BuySellTab';
+import Marketplace from './components/Marketplace';
+import Governance from './components/Governance';
+import Portfolio from './components/Portfolio';
 
 // Update chain ID for your network (Sepolia example: 11155111)
 const injected = new InjectedConnector({ supportedChainIds: [84532] });
@@ -176,6 +191,16 @@ const DUMMY_TOKENS = [
   }
 ];
 
+// Add these constants for the bonding curve parameters
+const MAX_SUPPLY = 1000000; // 1 million tokens
+const CURVE_FACTOR = 0.000000009; // Adjusts the steepness of the curve
+const INITIAL_PRICE = 0.1; // Starting price in USDC
+
+// Add this helper function to calculate price using the bonding curve formula
+const calculatePrice = (supply) => {
+  return INITIAL_PRICE + Math.pow(supply, 2) * CURVE_FACTOR;
+};
+
 function WalletConnectComponent() {
   const { activate, active, account, library, deactivate, setError } = useWeb3React();
   const [balance, setBalance] = useState(null);
@@ -195,8 +220,11 @@ function WalletConnectComponent() {
   const [tradeMode, setTradeMode] = useState('buy');
   const [walletError, setWalletError] = useState(null);
   const [showWalletGuide, setShowWalletGuide] = useState(false);
+  const [supplyData, setSupplyData] = useState([]);
+  const [currentSupply, setCurrentSupply] = useState(0);
+  const [currentPrice, setCurrentPrice] = useState(0);
 
-  // Add these new states to your component
+  // Add these new states
 
   // Add this helper function
   const getWalletErrorMessage = (error) => {
@@ -770,6 +798,291 @@ const tokenAddressChange = (v) => {
     }
   };
 
+  // Add this helper function to generate curve data
+  const generateCurveData = async (tokenAddress) => {
+    try {
+      // Mock current supply (random between 10% and 30% of max supply)
+      const mockCurrentSupply = Math.floor(MAX_SUPPLY * (0.1 + Math.random() * 0.2));
+      setCurrentSupply(mockCurrentSupply);
+
+      // Calculate current price based on supply
+      const mockCurrentPrice = calculatePrice(mockCurrentSupply);
+      setCurrentPrice(mockCurrentPrice);
+
+      // Generate curve data points
+      const dataPoints = [];
+      const steps = 50; // Number of points on the curve
+      
+      for (let i = 0; i <= steps; i++) {
+        const supply = (MAX_SUPPLY * i) / steps;
+        const price = calculatePrice(supply);
+        dataPoints.push({ 
+          supply: Math.round(supply), 
+          price: price
+        });
+      }
+
+      console.log("Generated curve data:", {
+        currentSupply: mockCurrentSupply,
+        currentPrice: mockCurrentPrice,
+        samplePoints: dataPoints.length
+      });
+
+      setSupplyData(dataPoints);
+
+    } catch (error) {
+      console.error("Error generating curve data:", error);
+    }
+  };
+
+  // Add useEffect to update curve when token changes
+  useEffect(() => {
+    if (selectedTokenAddress && library) {
+      generateCurveData(selectedTokenAddress);
+    }
+  }, [selectedTokenAddress, library]);
+
+  // Add this component
+  const BondingCurveChart = ({ data, currentSupply, currentPrice }) => {
+    // Format large numbers for display
+    const formatSupply = (value) => {
+      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+      if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+      return value.toFixed(0);
+    };
+
+    const formatPrice = (value) => {
+      return `$${value.toFixed(2)}`;
+    };
+
+    return (
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Token Bonding Curve
+        </Typography>
+        <Box sx={{ height: 300, width: '100%' }}>
+          <ResponsiveContainer>
+            <LineChart
+              data={data}
+              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="supply"
+                tickFormatter={formatSupply}
+                label={{ 
+                  value: 'Token Supply', 
+                  position: 'bottom',
+                  offset: -5
+                }}
+              />
+              <YAxis
+                tickFormatter={formatPrice}
+                label={{ 
+                  value: 'Price (USDC)', 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  offset: -5
+                }}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  name === 'price' ? formatPrice(value) : formatSupply(value),
+                  name === 'price' ? 'Price' : 'Supply'
+                ]}
+              />
+              <Line
+                type="monotone"
+                dataKey="price"
+                stroke="#8884d8"
+                dot={false}
+                strokeWidth={2}
+              />
+              {currentSupply && currentPrice && (
+                <ReferenceDot
+                  x={currentSupply}
+                  y={currentPrice}
+                  r={5}
+                  fill="red"
+                  stroke="none"
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        </Box>
+        
+        {/* Add stats below the chart */}
+        <Box sx={{ mt: 3 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Current Supply
+                </Typography>
+                <Typography variant="h6">
+                  {formatSupply(currentSupply)} / {formatSupply(MAX_SUPPLY)}
+                </Typography>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={(currentSupply / MAX_SUPPLY) * 100}
+                  sx={{ mt: 1 }}
+                />
+              </Paper>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Current Price
+                </Typography>
+                <Typography variant="h6">
+                  {formatPrice(currentPrice)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Next token: {formatPrice(calculatePrice(currentSupply + 1))}
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Box>
+      </Paper>
+    );
+  };
+
+  // Add a price impact calculator
+  const calculatePriceImpact = (amount, action) => {
+    if (!amount) return 0;
+    
+    const currentPrice = calculatePrice(currentSupply);
+    let targetSupply;
+    
+    if (action === 'buy') {
+      targetSupply = currentSupply + Number(amount);
+    } else {
+      targetSupply = Math.max(0, currentSupply - Number(amount));
+    }
+    
+    const targetPrice = calculatePrice(targetSupply);
+    const impact = ((targetPrice - currentPrice) / currentPrice) * 100;
+    
+    return action === 'buy' ? impact : -impact;
+  };
+
+  // Add this component
+  const PriceRangeSlider = ({ min, max, value, onChange }) => {
+    return (
+      <Box sx={{ px: 2, py: 1 }}>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Amount Range
+        </Typography>
+        <Slider
+          value={value}
+          onChange={onChange}
+          min={min}
+          max={max}
+          step={(max - min) / 100}
+          valueLabelDisplay="auto"
+          valueLabelFormat={(value) => `${value.toFixed(2)} USDC`}
+        />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Typography variant="caption" color="text.secondary">
+            {min.toFixed(2)} USDC
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {max.toFixed(2)} USDC
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+
+  // Add these handler functions
+  const handleBuy = async (amount) => {
+    if (!library || !account) {
+      setStatus("Please connect to a wallet first.");
+      return;
+    }
+
+    try {
+      const signer = library.getSigner();
+      const bondingContract = new ethers.Contract(
+        process.env.REACT_APP_BONDING_CURVE_ADDRESS,
+        ['function buy(address _token) payable'],
+        signer
+      );
+      
+      const tx = await bondingContract.buy(selectedTokenAddress, {
+        value: ethers.utils.parseUnits(amount.toString(), 6)
+      });
+      await tx.wait();
+      
+      // Update balances
+      fetchTokenBalances();
+      fetchStablecoinBalance();
+    } catch (error) {
+      console.error("Buy failed:", error);
+      throw error;
+    }
+  };
+
+  const handleSell = async (amount) => {
+    if (!library || !account) {
+      setStatus("Please connect to a wallet first.");
+      return;
+    }
+
+    try {
+      const signer = library.getSigner();
+      const bondingContract = new ethers.Contract(
+        process.env.REACT_APP_BONDING_CURVE_ADDRESS,
+        ['function sell(uint256 _tokenAmount, address _token)'],
+        signer
+      );
+      
+      const tx = await bondingContract.sell(
+        ethers.utils.parseUnits(amount.toString(), 18),
+        selectedTokenAddress
+      );
+      await tx.wait();
+      
+      // Update balances
+      fetchTokenBalances();
+      fetchStablecoinBalance();
+    } catch (error) {
+      console.error("Sell failed:", error);
+      throw error;
+    }
+  };
+
+  const handleQuote = async (action, amount) => {
+    if (!library || !amount || !selectedTokenAddress) return '0';
+    
+    try {
+      const signer = library.getSigner();
+      const bondingContract = new ethers.Contract(
+        process.env.REACT_APP_BONDING_CURVE_ADDRESS,
+        [
+          'function calculateTokens(uint256 _stableAmount, address _token) view returns (uint256)',
+          'function calculateStable(uint256 _tokenAmount, address _token) view returns (uint256)'
+        ],
+        signer
+      );
+
+      let quote;
+      if (action === 'buy') {
+        const amountInWei = ethers.utils.parseUnits(amount.toString(), 6); // USDC has 6 decimals
+        quote = await bondingContract.calculateTokens(amountInWei, selectedTokenAddress);
+        return ethers.utils.formatUnits(quote, 18); // Token has 18 decimals
+      } else {
+        const amountInWei = ethers.utils.parseUnits(amount.toString(), 18); // Token has 18 decimals
+        quote = await bondingContract.calculateStable(amountInWei, selectedTokenAddress);
+        return ethers.utils.formatUnits(quote, 6); // USDC has 6 decimals
+      }
+    } catch (error) {
+      console.error("Quote error:", error);
+      return '0';
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static" sx={{ mb: 3, borderRadius: 1 }}>
@@ -856,273 +1169,45 @@ const tokenAddressChange = (v) => {
 
           <Box sx={{ py: 3 }}>
             {activeTab === 'marketplace' && (
-              <Box>
-                <Typography variant="h4" sx={{ mb: 3 }}>Available Tokens</Typography>
-                <Grid container spacing={3}>
-                  {tokenAddresses.map((token) => (
-                    <Grid item xs={12} sm={6} md={4} key={token.address}>
-                      <Card>
-                        <CardContent>
-                          <Typography variant="h6">{token.name}</Typography>
-                          <Typography 
-                            variant="subtitle2" 
-                            sx={{ 
-                              display: 'inline-block',
-                              bgcolor: 'action.hover',
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 1
-                            }}
-                          >
-                            {token.ticker}
-                          </Typography>
-                        </CardContent>
-                        <CardActions>
-                          <Button 
-                            size="small" 
-                            variant="contained" 
-                            onClick={() => {
-                              setSelectedTokenAddress(token.address);
-                              setSelectedTokenTicker(token.ticker);
-                              setActiveTab('buy');
-                            }}
-                          >
-                            Buy
-                          </Button>
-                          <Button 
-                            size="small" 
-                            variant="outlined"
-                            onClick={() => {
-                              setSelectedTokenAddress(token.address);
-                              setSelectedTokenTicker(token.ticker);
-                              setActiveTab('sell');
-                            }}
-                          >
-                            Sell
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
+              <Marketplace 
+                tokenAddresses={tokenAddresses}
+                setSelectedTokenAddress={setSelectedTokenAddress}
+                setSelectedTokenTicker={setSelectedTokenTicker}
+                setActiveTab={setActiveTab}
+              />
             )}
 
             {(activeTab === 'buy' || activeTab === 'sell') && (
-              <Container maxWidth="sm">
-                <Box sx={{ mb: 3 }}>
-                  <Button 
-                    startIcon={<ArrowBack />}
-                    onClick={() => setActiveTab('marketplace')}
-                    sx={{ mb: 2 }}
-                  >
-                    Back to Marketplace
-                  </Button>
-                  
-                  <Typography variant="h4" gutterBottom>
-                    {tradeMode === 'buy' ? 'Buy' : 'Sell'} {selectedTokenTicker}
-                  </Typography>
-
-                  <ToggleButtonGroup
-                    value={tradeMode}
-                    exclusive
-                    onChange={(e, newMode) => setTradeMode(newMode)}
-                    sx={{ mb: 3 }}
-                  >
-                    <ToggleButton value="buy" aria-label="buy">
-                      Buy
-                    </ToggleButton>
-                    <ToggleButton value="sell" aria-label="sell">
-                      Sell
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-
-                  <Paper sx={{ p: 3, mt: 3 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <TextField
-                        label={tradeMode === 'buy' ? 'USDC Amount' : `${selectedTokenTicker} Amount`}
-                        type="number"
-                        value={tradeMode === 'buy' ? stablecoinAmount : erc20tokenamount}
-                        onChange={(e) => getQuote(tradeMode, e.target.value)}
-                        fullWidth
-                        InputProps={{
-                          endAdornment: (
-                            <Typography variant="body2" color="text.secondary">
-                              {tradeMode === 'buy' ? 'USDC' : selectedTokenTicker}
-                            </Typography>
-                          ),
-                        }}
-                      />
-
-                      <Paper 
-                        variant="outlined" 
-                        sx={{ 
-                          p: 2, 
-                          bgcolor: 'background.default',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <Typography color="text.secondary" gutterBottom>
-                          You will receive approximately:
-                        </Typography>
-                        <Typography variant="h4" color="primary" gutterBottom>
-                          {quotedVal} {tradeMode === 'buy' ? selectedTokenTicker : 'USDC'}
-                        </Typography>
-                      </Paper>
-
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        p: 2,
-                        bgcolor: 'background.default',
-                        borderRadius: 1
-                      }}>
-                        <Typography variant="body2">
-                          Available Balance:
-                        </Typography>
-                        <Typography variant="body1" fontWeight="bold">
-                          {tradeMode === 'buy' 
-                            ? `${stablecoinBalance || '0.00'} USDC`
-                            : `${tokenBalances[selectedTokenAddress] || '0.00'} ${selectedTokenTicker}`
-                          }
-                        </Typography>
-                      </Box>
-
-                      <Button
-                        variant="contained"
-                        size="large"
-                        fullWidth
-                        onClick={tradeMode === 'buy' ? buyToken : sellToken}
-                        disabled={
-                          tradeMode === 'buy' 
-                            ? !stablecoinAmount || stablecoinAmount <= 0
-                            : !erc20tokenamount || erc20tokenamount <= 0
-                        }
-                      >
-                        {tradeMode === 'buy' ? 'Buy' : 'Sell'} {selectedTokenTicker}
-                      </Button>
-                    </Box>
-                  </Paper>
-
-                  {/* Transaction Status */}
-                  {status && (
-                    <Paper 
-                      sx={{ 
-                        mt: 2, 
-                        p: 2, 
-                        bgcolor: status.includes('Error') ? 'error.dark' : 'success.dark'
-                      }}
-                    >
-                      <Typography color="white">
-                        {status}
-                      </Typography>
-                    </Paper>
-                  )}
-                </Box>
-              </Container>
+              <BuySellTab
+                selectedTokenAddress={selectedTokenAddress}
+                selectedTokenTicker={selectedTokenTicker}
+                library={library}
+                account={account}
+                stablecoinBalance={stablecoinBalance}
+                tokenBalances={tokenBalances}
+                onBack={() => setActiveTab('marketplace')}
+                currentPrice={currentPrice}
+                currentSupply={currentSupply}
+                supplyData={supplyData}
+                handleBuy={handleBuy}
+                handleSell={handleSell}
+                handleQuote={handleQuote}
+              />
             )}
 
             {activeTab === 'portfolio' && (
-              <Container>
-                <Box sx={{ mb: 4 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h4">Your Portfolio</Typography>
-                    <Button 
-                      startIcon={<Refresh />}
-                      onClick={fetchTokenBalances}
-                      variant="outlined"
-                    >
-                      Refresh Balances
-                    </Button>
-                  </Box>
-
-                  <Grid container spacing={3}>
-                    {/* USDC Balance Card */}
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom>USDC Balance</Typography>
-                          <Typography variant="h4" color="primary">
-                            {stablecoinBalance ? Number(stablecoinBalance).toFixed(2) : '0.00'}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-
-                    {/* ETH Balance Card */}
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom>ETH Balance</Typography>
-                          <Typography variant="h4" color="primary">
-                            {balance ? Number(balance).toFixed(4) : '0.0000'}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-
-                    {/* Token Holdings */}
-                    {tokenAddresses.map((token) => (
-                      tokenBalances[token.address] && Number(tokenBalances[token.address]) > 0 ? (
-                        <Grid item xs={12} sm={6} md={4} key={token.address}>
-                          <Card sx={{ height: '100%' }}>
-                            <CardContent>
-                              <Typography variant="h6" gutterBottom>{token.name}</Typography>
-                              <Typography variant="h4" color="primary">
-                                {Number(tokenBalances[token.address]).toFixed(4)}
-                              </Typography>
-                              <Typography variant="subtitle2" color="text.secondary">
-                                {token.ticker}
-                              </Typography>
-                            </CardContent>
-                            <CardActions>
-                              <Button 
-                                size="small" 
-                                variant="contained"
-                                onClick={() => {
-                                  setSelectedTokenAddress(token.address);
-                                  setSelectedTokenTicker(token.ticker);
-                                  setActiveTab('buy');
-                                }}
-                              >
-                                Buy More
-                              </Button>
-                              <Button 
-                                size="small" 
-                                variant="outlined"
-                                onClick={() => {
-                                  setSelectedTokenAddress(token.address);
-                                  setSelectedTokenTicker(token.ticker);
-                                  setActiveTab('sell');
-                                }}
-                              >
-                                Sell
-                              </Button>
-                            </CardActions>
-                          </Card>
-                        </Grid>
-                      ) : null
-                    ))}
-                  </Grid>
-
-                  {tokenAddresses.every(token => !tokenBalances[token.address] || Number(tokenBalances[token.address]) === 0) && (
-                    <Paper sx={{ p: 3, mt: 3, textAlign: 'center' }}>
-                      <Typography color="text.secondary" gutterBottom>
-                        No tokens in your portfolio yet
-                      </Typography>
-                      <Button 
-                        variant="contained" 
-                        onClick={() => setActiveTab('marketplace')}
-                        startIcon={<ShoppingCart />}
-                        sx={{ mt: 2 }}
-                      >
-                        Go to Marketplace
-                      </Button>
-                    </Paper>
-                  )}
-                </Box>
-              </Container>
+              <Portfolio
+                tokenAddresses={tokenAddresses}
+                tokenBalances={tokenBalances}
+                stablecoinBalance={stablecoinBalance}
+                balance={balance}
+                fetchEthBalance={fetchEthBalance}
+                fetchStablecoinBalance={fetchStablecoinBalance}
+                fetchTokenBalances={fetchTokenBalances}
+                setSelectedTokenAddress={setSelectedTokenAddress}
+                setSelectedTokenTicker={setSelectedTokenTicker}
+                setActiveTab={setActiveTab}
+              />
             )}
 
             {activeTab === 'create' && (
@@ -1461,258 +1546,39 @@ const tokenAddressChange = (v) => {
 )}
 
 {activeTab === 'governance' && (
-  <Container>
-    {/* DAO Selector */}
-    <Paper sx={{ p: 3, mb: 3 }}>
-      <FormControl fullWidth>
-        <InputLabel>Select Franchise DAO</InputLabel>
-        <Select
-          value={selectedDAO}
-          onChange={(e) => {
-            setSelectedDAO(e.target.value);
-            setDaoDetails(getDAODetails(e.target.value));
-          }}
-          label="Select Franchise DAO"
-        >
-          {tokenAddresses.map((token) => (
-            <MenuItem key={token.address} value={token.address}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography>{token.name}</Typography>
-                <Chip 
-                  label={token.ticker} 
-                  size="small" 
-                  sx={{ ml: 1 }}
-                />
-              </Box>
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    </Paper>
-
-    {selectedDAO ? (
-      <>
-        {/* DAO Info Header */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <Typography variant="h5">{daoDetails?.name}</Typography>
-              <Typography color="text.secondary" gutterBottom>
-                {daoDetails?.address}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                <Chip 
-                  icon={<HowToVote />} 
-                  label={`${proposals.length} Active Proposals`}
-                />
-                <Chip 
-                  icon={<LocalAtm />} 
-                  label={`${stakedAmount} ${daoDetails?.ticker} Staked`}
-                />
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        <Grid container spacing={3}>
-          {/* Staking Section */}
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" gutterBottom>
-                Staking
-              </Typography>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Currently Staked
-                </Typography>
-                <Typography variant="h4">
-                  {stakedAmount} {selectedTokenTicker || 'Tokens'}
-                </Typography>
-              </Box>
-              <Stack spacing={2}>
-                <Button
-                  variant="contained"
-                  startIcon={<LocalAtm />}
-                  onClick={() => setOpenStakeDialog(true)}
-                  fullWidth
-                >
-                  Stake Tokens
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<LocalAtm />}
-                  onClick={() => setOpenUnstakeDialog(true)}
-                  fullWidth
-                >
-                  Unstake Tokens
-                </Button>
-              </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Proposals Section */}
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6">
-                  Active Proposals
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<Description />}
-                  onClick={() => setOpenProposalDialog(true)}
-                >
-                  Create Proposal
-                </Button>
-              </Box>
-              
-              {proposals.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography color="text.secondary">
-                    No active proposals
-                  </Typography>
-                </Box>
-              ) : (
-                <List>
-                  {proposals.map((proposal, index) => (
-                    <ListItem
-                      key={index}
-                      secondaryAction={
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<HowToVote />}
-                          onClick={() => setSelectedProposal(proposal)}
-                        >
-                          Vote
-                        </Button>
-                      }
-                    >
-                      <ListItemText
-                        primary={proposal.title}
-                        secondary={`Votes: For (${proposal.votesFor}) Against (${proposal.votesAgainst})`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </Paper>
-          </Grid>
-        </Grid>
-
-        {/* Stake Dialog */}
-        <Dialog open={openStakeDialog} onClose={() => setOpenStakeDialog(false)}>
-          <DialogTitle>Stake Tokens</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Amount to Stake"
-              type="number"
-              fullWidth
-              value={stakeAmount}
-              onChange={(e) => setStakeAmount(e.target.value)}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">{selectedTokenTicker || 'Tokens'}</InputAdornment>,
-              }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenStakeDialog(false)}>Cancel</Button>
-            <Button onClick={handleStake} variant="contained">Stake</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Unstake Dialog */}
-        <Dialog open={openUnstakeDialog} onClose={() => setOpenUnstakeDialog(false)}>
-          <DialogTitle>Unstake Tokens</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Amount to Unstake"
-              type="number"
-              fullWidth
-              value={unstakeAmount}
-              onChange={(e) => setUnstakeAmount(e.target.value)}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">{selectedTokenTicker || 'Tokens'}</InputAdornment>,
-              }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenUnstakeDialog(false)}>Cancel</Button>
-            <Button onClick={handleUnstake} variant="contained">Unstake</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Create Proposal Dialog */}
-        <Dialog 
-          open={openProposalDialog} 
-          onClose={() => setOpenProposalDialog(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>Create New Proposal</DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2 }}>
-              <TextField
-                label="Proposal Title"
-                fullWidth
-                value={proposalTitle}
-                onChange={(e) => setProposalTitle(e.target.value)}
-                sx={{ mb: 3 }}
-              />
-              <TextField
-                label="Proposal Description"
-                fullWidth
-                multiline
-                rows={4}
-                value={proposalDescription}
-                onChange={(e) => setProposalDescription(e.target.value)}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenProposalDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreateProposal} variant="contained">Create Proposal</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Vote Dialog */}
-        <Dialog 
-          open={Boolean(selectedProposal)} 
-          onClose={() => setSelectedProposal(null)}
-        >
-          <DialogTitle>{selectedProposal?.title}</DialogTitle>
-          <DialogContent>
-            <FormControl>
-              <FormLabel>Your Vote</FormLabel>
-              <RadioGroup
-                value={voteValue}
-                onChange={(e) => setVoteValue(e.target.value)}
-              >
-                <FormControlLabel value="for" control={<Radio />} label="For" />
-                <FormControlLabel value="against" control={<Radio />} label="Against" />
-              </RadioGroup>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setSelectedProposal(null)}>Cancel</Button>
-            <Button onClick={handleVote} variant="contained">Submit Vote</Button>
-          </DialogActions>
-        </Dialog>
-      </>
-    ) : (
-      <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">
-          Please select a DAO to view governance details.
-        </Typography>
-      </Paper>
-    )}
-  </Container>
+  <Governance
+    tokenAddresses={tokenAddresses}
+    selectedDAO={selectedDAO}
+    setSelectedDAO={setSelectedDAO}
+    daoDetails={daoDetails}
+    setDaoDetails={setDaoDetails}
+    proposals={proposals}
+    selectedTokenTicker={selectedTokenTicker}
+    stakedAmount={stakedAmount}
+    openStakeDialog={openStakeDialog}
+    setOpenStakeDialog={setOpenStakeDialog}
+    openUnstakeDialog={openUnstakeDialog}
+    setOpenUnstakeDialog={setOpenUnstakeDialog}
+    openProposalDialog={openProposalDialog}
+    setOpenProposalDialog={setOpenProposalDialog}
+    selectedProposal={selectedProposal}
+    setSelectedProposal={setSelectedProposal}
+    stakeAmount={stakeAmount}
+    setStakeAmount={setStakeAmount}
+    unstakeAmount={unstakeAmount}
+    setUnstakeAmount={setUnstakeAmount}
+    proposalTitle={proposalTitle}
+    setProposalTitle={setProposalTitle}
+    proposalDescription={proposalDescription}
+    setProposalDescription={setProposalDescription}
+    voteValue={voteValue}
+    setVoteValue={setVoteValue}
+    handleStake={handleStake}
+    handleUnstake={handleUnstake}
+    handleCreateProposal={handleCreateProposal}
+    handleVote={handleVote}
+    getDAODetails={getDAODetails}
+  />
 )}
           </Box>
         </Container>
