@@ -1026,9 +1026,8 @@ const tokenAddressChange = (v) => {
         signer
       );
       
-      const tx = await bondingContract.buy(selectedTokenAddress, {
-        value: ethers.utils.parseUnits(amount.toString(), 6)
-      });
+      const tx = await bondingContract.buyTokens(ethers.utils.parseUnits(amount.toString(), 6),selectedTokenAddress)
+      
       await tx.wait();
       
       // Update balances
@@ -1054,7 +1053,7 @@ const tokenAddressChange = (v) => {
         signer
       );
       
-      const tx = await bondingContract.sell(
+      const tx = await bondingContract.sellTokens(
         ethers.utils.parseUnits(amount.toString(), 18),
         selectedTokenAddress
       );
