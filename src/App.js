@@ -1130,10 +1130,29 @@ const tokenAddressChange = (v) => {
         </Alert>
       </Snackbar>
 
-      <AppBar position="static" sx={{ mb: 3, borderRadius: 1 }}>
-        <Container>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
-            <img src="/ff.png"/>
+      <AppBar position="static" sx={{ mb: { xs: 2, sm: 3 }, borderRadius: 1 }}>
+        <Container maxWidth="lg">
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between', 
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: { xs: 2, sm: 0 },
+            p: { xs: 1.5, sm: 2 }
+          }}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: { xs: 'center', sm: 'flex-start' }
+            }}>
+              <img 
+                src="/ff.png" 
+                alt="Logo"
+                style={{
+                  maxHeight: '40px',
+                  width: 'auto'
+                }}
+              />
+            </Box>
             
             {!isConnected ? (
               <Button 
@@ -1141,20 +1160,32 @@ const tokenAddressChange = (v) => {
                 color="secondary" 
                 onClick={connectWallet}
                 startIcon={<AccountBalanceWallet />}
+                fullWidth={isMobile}
+                sx={{
+                  py: { xs: 1, sm: 'inherit' }
+                }}
               >
                 Connect MetaMask
               </Button>
             ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{ textAlign: 'right' }}>
-                  {/* Add conditional check for account */}
-                  <Typography variant="body2">
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'stretch', sm: 'center' },
+                gap: { xs: 1, sm: 2 },
+                width: '100%'
+              }}>
+                <Box sx={{ 
+                  textAlign: { xs: 'center', sm: 'right' },
+                  width: '100%'
+                }}>
+                  <Typography variant="body2" noWrap>
                     {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : ''}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" noWrap>
                     {balance !== null ? `${Number(balance).toFixed(4)} ETH` : "Loading..."}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" noWrap>
                     {stablecoinBalance !== null ? `${Number(stablecoinBalance).toFixed(2)} USDC` : "Loading..."}
                   </Typography>
                 </Box>
@@ -1163,6 +1194,10 @@ const tokenAddressChange = (v) => {
                   color="error" 
                   onClick={disconnectWallet}
                   size="small"
+                  fullWidth={isMobile}
+                  sx={{
+                    mt: { xs: 1, sm: 0 }
+                  }}
                 >
                   Disconnect
                 </Button>
